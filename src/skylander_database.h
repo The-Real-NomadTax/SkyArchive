@@ -6,12 +6,12 @@
 // Database entry structure
 typedef struct {
     unsigned int id;
-    const char* name;
+    char name[256];
     Element element;
     SkylanderType type;
-    const char* game;
+    char game[128];
     int year;
-    const char* description;
+    char description[512];
 } SkylanderDatabaseEntry;
 
 // Database functions
@@ -23,15 +23,19 @@ const char* get_skylander_game_by_id(unsigned int skylander_id);
 int get_skylander_year_by_id(unsigned int skylander_id);
 const char* get_skylander_description_by_id(unsigned int skylander_id);
 
+// Database management
+int load_skylander_database(const char* filename);
+void cleanup_skylander_database(void);
+
 // Database statistics
-int get_total_skylanders_count(void);
-int get_skylanders_by_element_count(Element element);
-int get_skylanders_by_type_count(SkylanderType type);
+size_t get_total_skylanders_count(void);
+size_t get_skylanders_by_element_count(Element element);
+size_t get_skylanders_by_type_count(SkylanderType type);
 
 // Search functions
-void search_skylanders_by_name(const char* search_term);
-void search_skylanders_by_element(Element element);
-void search_skylanders_by_type(SkylanderType type);
+void search_skylanders_by_name(const char* name, SkylanderDatabaseEntry* results, size_t max_results, size_t* result_count);
+void search_skylanders_by_element(Element element, SkylanderDatabaseEntry* results, size_t max_results, size_t* result_count);
+void search_skylanders_by_type(SkylanderType type, SkylanderDatabaseEntry* results, size_t max_results, size_t* result_count);
 
 // Interactive functions
 void search_database_interactive(void);

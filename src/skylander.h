@@ -23,6 +23,7 @@ typedef enum {
     MAGIC,
     LIGHT,
     DARK,
+    KAOS,
     UNKNOWN_ELEMENT
 } Element;
 
@@ -34,6 +35,9 @@ typedef enum {
     SUPERCHARGERS,
     IMAGINATORS,
     SPYRO,
+    MINI,
+    VILLAIN,
+    SENSEI_VILLAIN,
     UNKNOWN_TYPE
 } SkylanderType;
 

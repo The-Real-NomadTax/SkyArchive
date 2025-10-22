@@ -289,9 +289,33 @@ int portal_read_skylander(Portal* portal, Skylander* skylander) {
         return 0;
     }
     
-    // Parse skylander data from buffer
-    // Note: This is a simplified parser - actual protocol may be more complex
-    unsigned int skylander_id = (buffer[0] << 24) | (buffer[1] << 16) | (buffer[2] << 8) | buffer[3];
+    // Parse skylander data from buffer using correct NFC protocol
+    // Based on real data: 53 10 00 00 00 B7 00 00 00 00 00 00 00 00 00 00
+    // The 53 is likely a command, real ID appears to be in bytes 5-8: 00 B7 00 00
+    unsigned int skylander_id = 0;
+    
+    // Check if this is actually a valid Skylander response
+    // If all bytes are 0x00, it's likely no Skylander
+    int all_zero = 1;
+    for (int i = 0; i < bytes_transferred; i++) {
+        if (buffer[i] != 0x00) {
+            all_zero = 0;
+            break;
+        }
+    }
+    
+    if (all_zero) {
+        printf("Debug: No Skylander detected (all zeros)\n");
+        return 0;
+    }
+    
+    if (bytes_transferred >= 8) {
+        // Try parsing from bytes 5-8 (little endian)
+        skylander_id = buffer[5] | (buffer[6] << 8) | (buffer[7] << 16) | (buffer[8] << 24);
+    } else if (bytes_transferred >= 4) {
+        // Fallback to first 4 bytes
+        skylander_id = (buffer[0] << 24) | (buffer[1] << 16) | (buffer[2] << 8) | buffer[3];
+    }
     
     // Debug: Print raw buffer data and parsed ID
     printf("Debug: Raw buffer data: ");
@@ -300,6 +324,12 @@ int portal_read_skylander(Portal* portal, Skylander* skylander) {
     }
     printf("\n");
     printf("Debug: Parsed Skylander ID: 0x%08X (%u)\n", skylander_id, skylander_id);
+    
+    // Check if the ID looks reasonable (not too high or suspicious)
+    if (skylander_id == 0 || skylander_id > 0xFFFFFF) {
+        printf("Debug: Invalid or suspicious ID, treating as no Skylander\n");
+        return 0;
+    }
     
     // Get skylander information by ID from database
     const char* name = get_skylander_name_by_id(skylander_id);

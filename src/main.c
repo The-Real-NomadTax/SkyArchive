@@ -12,6 +12,11 @@ int main() {
     Collection* collection = create_collection();
     Portal* portal = portal_init();
     
+    // Load Skylander database from SQL file
+    if (!load_skylander_database("../skylanders.db.sql")) {
+        printf("Warning: Could not load Skylander database. Portal detection may not work properly.\n");
+    }
+    
     int choice;
     do {
         printf("\n=== Main Menu ===\n");
@@ -79,5 +84,6 @@ int main() {
     
     free_collection(collection);
     portal_cleanup(portal);
+    cleanup_skylander_database();
     return 0;
 }
