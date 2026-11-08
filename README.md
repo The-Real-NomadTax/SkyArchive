@@ -1,55 +1,74 @@
 # SkyArchive
 
-A C application for managing your Skylander collection with Portal of Power integration!
+A Rust application for managing a Skylander collection, with optional Portal of Power support.
 
-## Quick Start
+## Quick start
 
 ```bash
-# Build the project
-make
-
-# Run the application
-./skyarchive
+cargo run
 ```
 
-## Project Structure
+Portal reads need the `usb` feature. That feature uses the pure-Rust `rawusb` crate, so it does not need libusb or a C compiler.
 
-- `src/` - Source code directory
-  - `main.c` - Main application entry point
-  - `skylander.h/c` - Skylander data structures
-  - `collection.h/c` - Collection management
-  - `portal.h/c` - Portal of Power USB communication
-  - `Makefile` - Build configuration
-  - `README.md` - Detailed documentation
-  - `.gitignore` - Git ignore rules
-- `skyarchive.exe` - Compiled executable (Windows)
-- `Makefile` - Root Makefile (delegates to src/)
+```bash
+cargo run --features usb --release
+```
 
-## Features
+`make`, `make run`, `make test`, and `make usb` call the same Cargo commands.
 
-- **Collection Management**: Add, remove, search, and view Skylanders
-- **Portal Integration**: Read Skylanders directly from Portal of Power
-- **File I/O**: Save and load collections
-- **Cross-platform**: Works on Windows, Linux, and macOS
+## Menu
 
-## Documentation
+1. Add Skylander
+2. View Collection
+3. Search Skylander
+4. Remove Skylander
+5. Save Collection (`collection.txt`)
+6. Load Collection
+7. Connect Portal of Power
+8. Read Skylander from Portal
+9. Portal Status
+10. Search Skylander Database
+11. Database Statistics
+0. Exit
 
-For detailed documentation, build instructions, and usage information, see `src/README.md`.
+## Collection file
 
-## Building
+```
+<number of skylanders>
+<name>|<element>|<type>|<game>|<year>|<owned>|<description>
+```
 
-The build system automatically detects your platform and available libraries:
+`owned` is `1` or `0`. This is the same layout the earlier C program wrote. A description may contain `|`.
 
-- **With libusb**: Full Portal of Power functionality
-- **Without libusb**: Core features only (portal disabled)
+## Figure database
 
-## Portal Compatibility
+On startup the program loads the first `skylanders.db.sql` it finds in the working directory, the parent directory, or next to the executable. Rows look like:
 
-- ✅ PS3/PS4 Portal of Power
-- ✅ Wii/Wii U Portal of Power  
-- ✅ PC Portal of Power
-- ❌ Xbox Portal (platform-specific)
+```sql
+INSERT INTO skylanders (name, element, debut_game, year, type) VALUES ('Eruptor', 'Fire', 'Spyro''s Adventure', 2011, 'Core');
+```
 
----
+The dump has no NFC ids. Rows are numbered from `0xB7` so a portal report in that shape can still name the first row. Doubled quotes (`''`) are one apostrophe.
 
-*Happy collecting!* 🎮✨
+Names such as `Core`, `Giant`, `Trap Master`, `SuperCharger`, and `Sensei` map onto the figure types stored in collection files (`Spyro`, `Giants`, `Trap Team`, `SuperChargers`, `Imaginators`).
+
+## Portal
+
+Compatible portals are the PS3, PS4, Wii, Wii U, and PC Portal of Power (USB ids `1430:0150` and `1430:0151`). The Xbox portal is not supported. On Linux the portal's kernel driver is detached from interface 0 when the device is claimed. On Windows the portal must be bound to WinUSB. Reading may require administrator rights.
+
+A report is decoded as a command byte followed by a little-endian figure id in bytes 5 through 8.
+
+## Layout
+
+- `src/main.rs` — process entry
+- `src/cli.rs` — menu
+- `src/skylander.rs` — element, type, and figure
+- `src/collection.rs` — collection and `collection.txt`
+- `src/database.rs` — SQL dump
+- `src/portal.rs` — portal reports and USB
+
+## Tests
+
+```bash
+cargo test
+```
