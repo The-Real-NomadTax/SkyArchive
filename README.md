@@ -14,8 +14,6 @@ Portal reads need the `usb` feature. That feature uses the pure-Rust `rawusb` cr
 cargo run --features usb --release
 ```
 
-`make`, `make run`, `make test`, and `make usb` call the same Cargo commands.
-
 ## Menu
 
 1. Add Skylander
