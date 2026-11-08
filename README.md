@@ -8,10 +8,10 @@ A Rust application for managing a Skylander collection, with optional Portal of 
 cargo run
 ```
 
-Portal reads need the `usb` feature. That feature uses the pure-Rust `rawusb` crate, so it does not need libusb or a C compiler.
+Portal reads use the pure-Rust `rawusb` crate, so they do not need libusb or a C compiler.
 
 ```bash
-cargo run --features usb --release
+cargo run --release
 ```
 
 ## Menu

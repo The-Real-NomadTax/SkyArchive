@@ -7,10 +7,5 @@ description = "Skylander collection manager with Portal of Power support"
 license = "MIT"
 readme = "README.md"
 
-[features]
-default = []
-# Portal of Power USB access through the pure-Rust rawusb crate.
-usb = ["dep:rawusb"]
-
 [dependencies]
-rawusb = { version = "0.1.7", optional = true }
+rawusb = "0.1.7"

@@ -1,8 +1,7 @@
 //! Portal of Power access.
 //!
-//! USB transfers are compiled with `--features usb` and go through the
-//! pure-Rust `rawusb` crate. Figure reports are decoded either way, so the
-//! byte layout can be tested without hardware.
+//! USB transfers go through the pure-Rust `rawusb` crate. Figure reports are
+//! decoded without a device, so the byte layout can be tested without hardware.
 
 use std::thread;
 use std::time::{Duration, Instant};
@@ -11,22 +10,16 @@ use crate::database::Database;
 use crate::error::Error;
 use crate::skylander::Skylander;
 
-#[cfg(feature = "usb")]
 use rawusb::ErrorKind;
 
 /// Activision vendor id.
 const VENDOR_ID: u16 = 0x1430;
 /// PS3/PS4/Wii/PC portal, then the alternate product id.
-#[cfg(feature = "usb")]
 const PRODUCT_IDS: [u16; 2] = [0x0150, 0x0151];
-#[cfg(feature = "usb")]
 const ENDPOINT_IN: u8 = 0x81;
-#[cfg(feature = "usb")]
 const READ_TIMEOUT: Duration = Duration::from_secs(5);
 const DETECT_TIMEOUT: Duration = Duration::from_millis(100);
-#[cfg(feature = "usb")]
 const SHORT_BUFFER: usize = 64;
-#[cfg(feature = "usb")]
 const LONG_BUFFER: usize = 256;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -122,7 +115,6 @@ fn interpret(raw: &[u8], database: &Database) -> Result<Skylander, Error> {
     }
 }
 
-#[cfg(feature = "usb")]
 struct UsbState {
     context: rawusb::Context,
     handle: Option<rawusb::DeviceHandle>,
@@ -134,39 +126,27 @@ pub struct Portal {
     vendor_id: u16,
     product_id: u16,
     device_path: String,
-    #[cfg(feature = "usb")]
     usb: Option<UsbState>,
 }
 
 impl Portal {
     pub fn open() -> Self {
-        #[cfg(feature = "usb")]
-        {
-            match rawusb::Context::new() {
-                Ok(context) => {
-                    return Self {
-                        state: PortalState::Disconnected,
-                        vendor_id: VENDOR_ID,
-                        product_id: 0,
-                        device_path: String::new(),
-                        usb: Some(UsbState {
-                            context,
-                            handle: None,
-                        }),
-                    };
-                }
-                Err(err) => {
-                    println!(
-                        "Warning: USB is unavailable ({err}). Portal functionality disabled."
-                    );
-                }
+        match rawusb::Context::new() {
+            Ok(context) => Self {
+                state: PortalState::Disconnected,
+                vendor_id: VENDOR_ID,
+                product_id: 0,
+                device_path: String::new(),
+                usb: Some(UsbState {
+                    context,
+                    handle: None,
+                }),
+            },
+            Err(err) => {
+                println!("Warning: USB is unavailable ({err}). Portal functionality disabled.");
+                Self::inactive()
             }
         }
-        #[cfg(not(feature = "usb"))]
-        {
-            println!("Warning: USB support was not compiled in. Portal functionality disabled.");
-        }
-        Self::inactive()
     }
 
     fn inactive() -> Self {
@@ -175,7 +155,6 @@ impl Portal {
             vendor_id: VENDOR_ID,
             product_id: 0,
             device_path: String::new(),
-            #[cfg(feature = "usb")]
             usb: None,
         }
     }
@@ -192,7 +171,6 @@ impl Portal {
     }
 
     pub fn print_devices(&self) {
-        #[cfg(feature = "usb")]
         if let Some(usb) = &self.usb {
             print_device_list(&usb.context);
             return;
@@ -204,7 +182,6 @@ impl Portal {
         if self.is_connected() {
             return Ok(());
         }
-        #[cfg(feature = "usb")]
         if self.usb.is_some() {
             return self.connect_usb();
         }
@@ -215,7 +192,6 @@ impl Portal {
         if !self.is_connected() {
             return;
         }
-        #[cfg(feature = "usb")]
         if let Some(usb) = self.usb.as_mut() {
             if let Some(handle) = usb.handle.take() {
                 let _ = handle.release_interface(0);
@@ -231,23 +207,16 @@ impl Portal {
         if !self.is_connected() {
             return Ok(false);
         }
-        #[cfg(not(feature = "usb"))]
-        {
-            Ok(false)
-        }
-        #[cfg(feature = "usb")]
-        {
-            let mut buf = vec![0u8; SHORT_BUFFER];
-            match self.interrupt_in(&mut buf, DETECT_TIMEOUT) {
-                Err(err) if err.kind() == ErrorKind::Timeout => Ok(false),
-                Err(err) if err.kind() == ErrorKind::Overflow => Ok(true),
-                Err(err) => {
-                    println!("Error reading from portal: {err}");
-                    Err(Error::message(format!("Error reading from portal: {err}")))
-                }
-                Ok(0) => Ok(false),
-                Ok(_) => Ok(buf[0] != 0),
+        let mut buf = vec![0u8; SHORT_BUFFER];
+        match self.interrupt_in(&mut buf, DETECT_TIMEOUT) {
+            Err(err) if err.kind() == ErrorKind::Timeout => Ok(false),
+            Err(err) if err.kind() == ErrorKind::Overflow => Ok(true),
+            Err(err) => {
+                println!("Error reading from portal: {err}");
+                Err(Error::message(format!("Error reading from portal: {err}")))
             }
+            Ok(0) => Ok(false),
+            Ok(_) => Ok(buf[0] != 0),
         }
     }
 
@@ -309,7 +278,6 @@ impl Portal {
         Err(Error::message(message))
     }
 
-    #[cfg(feature = "usb")]
     fn interrupt_in(&self, buf: &mut [u8], timeout: Duration) -> Result<usize, rawusb::Error> {
         let handle = self
             .usb
@@ -319,7 +287,6 @@ impl Portal {
         handle.interrupt_read(ENDPOINT_IN, buf, timeout)
     }
 
-    #[cfg(feature = "usb")]
     fn read_payload(&self) -> Result<Vec<u8>, Error> {
         let mut buf = vec![0u8; SHORT_BUFFER];
         match self.interrupt_in(&mut buf, READ_TIMEOUT) {
@@ -349,12 +316,6 @@ impl Portal {
         }
     }
 
-    #[cfg(not(feature = "usb"))]
-    fn read_payload(&self) -> Result<Vec<u8>, Error> {
-        Err(Error::message("Error: Portal not connected."))
-    }
-
-    #[cfg(feature = "usb")]
     fn connect_usb(&mut self) -> Result<(), Error> {
         let context = {
             let Some(usb) = &self.usb else {
@@ -421,7 +382,6 @@ impl Drop for Portal {
     }
 }
 
-#[cfg(feature = "usb")]
 fn prepare_portal(handle: &rawusb::DeviceHandle) -> rawusb::Result<()> {
     // Linux often has a kernel HID driver holding interface 0.
     handle.set_auto_detach_kernel_driver(true);
@@ -431,7 +391,6 @@ fn prepare_portal(handle: &rawusb::DeviceHandle) -> rawusb::Result<()> {
     handle.claim_interface(0)
 }
 
-#[cfg(feature = "usb")]
 fn print_device_list(context: &rawusb::Context) {
     let devices = match context.devices() {
         Ok(devices) => devices,
@@ -444,13 +403,12 @@ fn print_device_list(context: &rawusb::Context) {
     println!("VID      PID      Class                Description");
     println!("{}", "-".repeat(60));
     for device in devices {
-        let description = if device.vendor_id() == VENDOR_ID
-            && PRODUCT_IDS.contains(&device.product_id())
-        {
-            "Skylanders Portal of Power"
-        } else {
-            "Unknown Device"
-        };
+        let description =
+            if device.vendor_id() == VENDOR_ID && PRODUCT_IDS.contains(&device.product_id()) {
+                "Skylanders Portal of Power"
+            } else {
+                "Unknown Device"
+            };
         let class = "HID";
         println!(
             "0x{:04X}  0x{:04X}  {class:<20} {description:<30}",
